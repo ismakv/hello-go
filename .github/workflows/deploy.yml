@@ -1,0 +1,57 @@
+name: CI + Deploy to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run CI
+        run: make ci
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload project to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "."
+          target: "${{ secrets.VPS_BASE_DIR }}/${{ github.event.repository.name }}"
+          rm: true
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_ENV_B64: ${{ secrets.APP_ENV_B64 }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+
+            APP_DIR="${{ secrets.VPS_BASE_DIR }}/${{ github.event.repository.name }}"
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
+
+            if [ -n "$APP_ENV_B64" ]; then
+              echo "$APP_ENV_B64" | base64 -d > .env
+            fi
+
+            docker compose up -d --build --remove-orphans
+            docker image prune -f
