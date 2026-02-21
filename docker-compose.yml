@@ -1,7 +1,6 @@
 services:
   app:
-    build:
-      context: .
+    build: .
     restart: unless-stopped
-    env_file:
-      - .env
+    ports:
+      - "8081:8080"

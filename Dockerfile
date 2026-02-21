@@ -1,8 +1,10 @@
+FROM golang:1.22-alpine AS builder
+WORKDIR /src
+COPY . .
+RUN go build -o /out/app .
+
 FROM alpine:3.20
-
 RUN apk add --no-cache ca-certificates
-
-WORKDIR /app
-
-# Replace with your app binary or runtime command
-CMD ["sh", "-c", "echo \"Implement me\" && sleep infinity"]
+COPY --from=builder /out/app /usr/local/bin/app
+EXPOSE 8080
+CMD ["/usr/local/bin/app"]
